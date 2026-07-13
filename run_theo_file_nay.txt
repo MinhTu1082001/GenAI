@@ -1,6 +1,10 @@
 :: ---- DỮ LIỆU (lặp lại các bước 3–5 mỗi khi patterns.yaml đổi lớn) ----
 python download_data.py
 python prepare_data.py
+
+Cài thư viện vào, run:
+pip install "fugashi[unidic-lite]" pyyaml --quiet
+
 python tagger.py --selftest
 python tagger.py --mine
 python split_data.py :: CHỈ chạy thật khi patterns hoàn chỉnh → ĐÓNG BĂNG
