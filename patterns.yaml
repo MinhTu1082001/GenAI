@@ -1,0 +1,110 @@
+# patterns.yaml — Danh mục pattern ngữ pháp N5–N4 cho rule tagger
+# ============================================================================
+# SCHEMA mỗi mục:
+#   id      : định danh ASCII duy nhất — sau này chính là token của grammar
+#             decoder, nên đặt ngắn gọn, ổn định, không đổi giữa chừng
+#   pattern : tên hiển thị (đưa vào JSON demo)
+#   level   : N5 | N4
+#   seq     : dãy điều kiện token LIÊN TIẾP trên chuỗi hình vị fugashi/UniDic.
+#             Mỗi điều kiện có thể gồm (điều kiện nào có mặt thì phải thỏa):
+#               surface : khớp đúng bề mặt token (str hoặc list)
+#               lemma   : khớp nguyên mẫu từ điển — NHỚ UniDic dùng dạng kanji
+#                         (居る, 仕舞う, 有る, 良い, 成る…), kèm cả hai dạng!
+#               pos     : khớp TIỀN TỐ chuỗi từ loại nối '-'
+#                         (vd "動詞", "助詞-接続助詞", "名詞")
+#               cform   : khớp tiền tố 活用形 (vd "連用形", "未然形")
+#               opt     : true → token này được phép vắng mặt
+#   note    : nghĩa tiếng Việt ngắn — nguyên liệu cho từ điển template sau này
+#   fp      : false-positive đã biết → nguyên liệu mục error analysis
+# ----------------------------------------------------------------------------
+# QUY TRÌNH THÊM PATTERN MỚI (vòng lặp bạn sẽ lặp ~100–150 lần):
+#   1) python tagger.py --debug "câu ví dụ chứa pattern"
+#      → nhìn bảng hình vị (surface / lemma / pos / cform) máy thực sự thấy
+#   2) viết seq theo bảng đó — ràng buộc ÍT NHẤT đủ để chính xác
+#      (ưu tiên lemma/cform hơn surface để phủ mọi dạng chia)
+#   3) thêm câu test vào SELFTEST trong tagger.py → python tagger.py --selftest
+# ============================================================================
+
+- id: ta_bakari
+  pattern: 〜たばかり
+  level: N4
+  note: vừa mới làm gì xong (hành động xảy ra chưa lâu)
+  fp: >
+    ばかり sau danh từ (テレビばかり見る = "chỉ toàn") KHÔNG khớp vì thiếu た
+    — đúng ý đồ; hai nghĩa của ばかり là hai mục riêng khi mở rộng.
+  seq:
+    - {pos: 動詞}
+    - {surface: [た, だ], pos: 助動詞}
+    - {surface: ばかり, pos: 助詞}
+
+- id: te_shimau
+  pattern: 〜てしまう
+  level: N4
+  note: hoàn tất trọn vẹn, thường kèm sắc thái tiếc nuối ("...mất rồi")
+  fp: >
+    dạng rút gọn văn nói ちゃう・じゃう tokenize khác — nếu muốn phủ
+    (OpenSubtitles nhiều), kiểm bằng --debug rồi thêm mục te_chau riêng.
+  seq:
+    - {surface: [て, で], pos: 助詞-接続助詞}
+    - {lemma: [しまう, 仕舞う], pos: 動詞}
+
+- id: te_iru
+  pattern: 〜ている
+  level: N5
+  note: đang diễn ra / trạng thái kéo dài
+  fp: >
+    dạng rút gọn 〜てる (食べてる) có thể không khớp tùy cách UniDic tách —
+    kiểm bằng --debug; nếu cần thì thêm mục riêng.
+  seq:
+    - {surface: [て, で], pos: 助詞-接続助詞}
+    - {lemma: [いる, 居る], pos: 動詞}
+
+- id: nakereba_naranai
+  pattern: 〜なければならない
+  level: N4
+  note: phải làm gì (nghĩa vụ, bắt buộc)
+  fp: >
+    biến thể なきゃ・ないといけない chưa phủ — thêm mục riêng khi mở rộng.
+    Khớp lemma 成る/行ける (không khớp surface なら) nên phủ cả なりません.
+  seq:
+    - {surface: なけれ}
+    - {surface: ば, pos: 助詞}
+    - {lemma: [成る, なる, 行ける, いける]}
+
+- id: nagara
+  pattern: 〜ながら
+  level: N4
+  note: vừa... vừa... (hai hành động đồng thời)
+  fp: >
+    ながら nghĩa nhượng bộ sau động từ (知っていながら…) vẫn lọt —
+    ràng buộc cform 連用形 chặn được dạng sau danh từ (残念ながら) thôi.
+    Ghi nhận làm ví dụ error analysis.
+  seq:
+    - {pos: 動詞, cform: 連用形}
+    - {surface: ながら, pos: 助詞}
+
+- id: ta_koto_ga_aru
+  pattern: 〜たことがある
+  level: N4
+  note: đã từng làm gì (kinh nghiệm trong quá khứ)
+  fp: >
+    dạng phủ định たことがない (chưa từng) là mục riêng khi mở rộng
+    (đổi lemma cuối thành 無い); đừng gộp vào đây kẻo lẫn nghĩa.
+  seq:
+    - {pos: 動詞}
+    - {surface: [た, だ], pos: 助動詞}
+    - {surface: こと, pos: 名詞}
+    - {surface: が, pos: 助詞}
+    - {lemma: [ある, 有る]}
+
+- id: hou_ga_ii
+  pattern: 〜ほうがいい
+  level: N4
+  note: nên làm gì (lời khuyên)
+  fp: >
+    khớp cả AよりBのほうがいい (so sánh, N5) — nếu muốn tách "lời khuyên"
+    riêng thì thêm ràng buộc [động từ][た] phía trước thành mục ta_hou_ga_ii.
+  seq:
+    - {surface: [ほう, 方], pos: 名詞}
+    - {surface: が, pos: 助詞}
+    - {lemma: [いい, 良い, よい]}

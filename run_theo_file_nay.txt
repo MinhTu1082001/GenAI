@@ -1,0 +1,17 @@
+:: ---- DỮ LIỆU (lặp lại các bước 3–5 mỗi khi patterns.yaml đổi lớn) ----
+python download_data.py
+python prepare_data.py
+python tagger.py --selftest
+python tagger.py --mine
+python split_data.py :: CHỈ chạy thật khi patterns hoàn chỉnh → ĐÓNG BĂNG
+
+:: ---- MODEL ----
+python train.py --overfit 50 --epochs 300 --run sanity
+rmdir /s /q artifacts :: BẮT BUỘC mỗi khi dữ liệu train thay đổi
+python train.py --variant seq2seq --run a_seq2seq
+python train.py --variant cvae1 --run b_cvae1
+python train.py --variant cvae2 --run c_cvae2
+
+```
+
+```

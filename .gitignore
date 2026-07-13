@@ -1,0 +1,9 @@
+# Ignore common folders
+dist/
+build/
+.vscode/
+.idea/
+venv/
+runs/
+data/
+artifacts/
