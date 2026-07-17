@@ -1,0 +1,8 @@
+# pip install -r requirements.txt
+torch                  # model + train (bản CPU là đủ)
+sentencepiece          # tokenizer tự train (from scratch)
+fugashi[unidic-lite]   # tách hình vị tiếng Nhật (tra từ điển, KHÔNG phải neural)
+pyyaml                 # đọc patterns.yaml / frames.yaml
+matplotlib             # plots.py vẽ hình báo cáo
+sacrebleu              # chấm chrF/BLEU chuẩn
+scikit-learn           # t-SNE cho hình fig7 (thiếu thì tự fallback PCA)

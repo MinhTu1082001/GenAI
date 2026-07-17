@@ -32,6 +32,9 @@
   fp: >
     ばかり sau danh từ (テレビばかり見る = "chỉ toàn") KHÔNG khớp vì thiếu た
     — đúng ý đồ; hai nghĩa của ばかり là hai mục riêng khi mở rộng.
+    FP đã kiểm --debug: 〜たばかりに (N2 "chỉ vì", 信じたばかりに騙された) vẫn lọt
+    — schema không có exclude-next để chặn token に/で phía sau. Miss: dạng nói
+    ばっかり・ばかし (không khớp surface ばかり).
   seq:
     - {pos: 動詞}
     - {surface: [た, だ], pos: 助動詞}
@@ -42,8 +45,10 @@
   level: N4
   note: hoàn tất trọn vẹn, thường kèm sắc thái tiếc nuối ("...mất rồi")
   fp: >
-    dạng rút gọn văn nói ちゃう・じゃう tokenize khác — nếu muốn phủ
-    (OpenSubtitles nhiều), kiểm bằng --debug rồi thêm mục te_chau riêng.
+    dạng rút gọn văn nói ちゃう・じゃう tokenize khác (lemma ちゃう) — muốn phủ
+    (OpenSubtitles nhiều) thì thêm mục te_chau riêng, đã kiểm --debug là miss.
+    FP ngữ nghĩa: しまう nghĩa đen "cất đi" (服をたたんでしまう) rule không phân
+    biệt được — ví dụ error analysis đẹp.
   seq:
     - {surface: [て, で], pos: 助詞-接続助詞}
     - {lemma: [しまう, 仕舞う], pos: 動詞}
@@ -53,8 +58,10 @@
   level: N5
   note: đang diễn ra / trạng thái kéo dài
   fp: >
-    dạng rút gọn 〜てる (食べてる) có thể không khớp tùy cách UniDic tách —
-    kiểm bằng --debug; nếu cần thì thêm mục riêng.
+    Đã xác nhận --debug: 食べてる MISS thật (てる là MỘT token 助動詞 lemma てる);
+    cũng miss てない (食べてない, rút gọn của ていない) và các dạng ておる・〜とる・
+    ていらっしゃる (lemma khác いる). Nhiều OpenSubtitles → coverage lệch về văn
+    viết; cân nhắc thêm mục te_ru riêng khi mở rộng.
   seq:
     - {surface: [て, で], pos: 助詞-接続助詞}
     - {lemma: [いる, 居る], pos: 動詞}
@@ -64,12 +71,15 @@
   level: N4
   note: phải làm gì (nghĩa vụ, bắt buộc)
   fp: >
-    biến thể なきゃ・ないといけない chưa phủ — thêm mục riêng khi mở rộng.
-    Khớp lemma 成る/行ける (không khớp surface なら) nên phủ cả なりません.
+    biến thể なきゃ・なくては・ねばならない chưa phủ — thêm mục riêng khi mở rộng.
+    Khớp lemma 成る/行ける nên phủ cả なりません. VÁ BUG (đã kiểm --debug):
+    unidic-lite lemma-hoá いけ trong いけません thành 行く (KHÔNG phải 行ける) nên
+    nhánh いけない từng chết — đã thêm 行く vào list. Đánh đổi: 〜なければ行けない
+    nghĩa đen "không thì không đi được" sẽ lọt (hiếm, ghi error analysis).
   seq:
     - {surface: なけれ}
     - {surface: ば, pos: 助詞}
-    - {lemma: [成る, なる, 行ける, いける]}
+    - {lemma: [成る, なる, 行ける, いける, 行く]}
 
 - id: nagara
   pattern: 〜ながら
@@ -78,7 +88,8 @@
   fp: >
     ながら nghĩa nhượng bộ sau động từ (知っていながら…) vẫn lọt —
     ràng buộc cform 連用形 chặn được dạng sau danh từ (残念ながら) thôi.
-    Ghi nhận làm ví dụ error analysis.
+    Miss đã kiểm --debug: bị động/sai khiến 叱られながら・させながら (token ngay
+    trước ながら là 助動詞 nên pos 動詞 trượt) — muốn phủ thì nới pos [動詞, 助動詞].
   seq:
     - {pos: 動詞, cform: 連用形}
     - {surface: ながら, pos: 助詞}
@@ -90,6 +101,9 @@
   fp: >
     dạng phủ định たことがない (chưa từng) là mục riêng khi mở rộng
     (đổi lemma cuối thành 無い); đừng gộp vào đây kẻo lẫn nghĩa.
+    Miss đã kiểm --debug: viết kanji 事 (登った事がある → cần surface [こと, 事]);
+    và thay が bằng は/も (行ったことはある). FP ngữ nghĩa: 困ったことがある kiểu
+    "đang có chuyện rắc rối" (tồn tại hiện tại, không phải kinh nghiệm).
   seq:
     - {pos: 動詞}
     - {surface: [た, だ], pos: 助動詞}
@@ -104,7 +118,76 @@
   fp: >
     khớp cả AよりBのほうがいい (so sánh, N5) — nếu muốn tách "lời khuyên"
     riêng thì thêm ràng buộc [động từ][た] phía trước thành mục ta_hou_ga_ii.
+    FP đã kiểm --debug: 方 đọc かた (người): あの方がいい先生です lọt hou_ga_ii
+    (方がいい) — Tok không giữ trường reading nên rule không chặn được.
   seq:
     - {surface: [ほう, 方], pos: 名詞}
     - {surface: が, pos: 助詞}
     - {lemma: [いい, 良い, よい]}
+
+# ---- 5 pattern thêm đợt này (đã verify bằng --debug + --selftest) ----
+
+- id: tai
+  pattern: 〜たい
+  level: N5
+  note: muốn làm gì (nguyện vọng của người nói)
+  fp: >
+    冷たい là MỘT token 形容詞 nguyên khối nên KHÔNG lọt (đã kiểm --debug).
+    〜たがる (nguyện vọng ngôi thứ ba) lemma たがる — mục riêng khi mở rộng.
+    Dùng lemma たい nên phủ luôn dạng chia (食べたく matched, cform 連用形).
+  seq:
+    - {pos: 動詞, cform: 連用形}
+    - {lemma: たい, pos: 助動詞}
+
+- id: naide_kudasai
+  pattern: 〜ないでください
+  level: N5
+  note: xin đừng làm gì (yêu cầu phủ định lịch sự)
+  fp: >
+    ないで không kèm ください (泣かないで) là mục naide riêng khi mở rộng.
+    Token で ở đây có lemma て (pos 助詞-接続助詞) — dùng surface で để phân biệt
+    với 格助詞 で (ここで). Động từ đầu KHÔNG ràng lemma (撮ら lemma-hoá 取る).
+  seq:
+    - {pos: 動詞, cform: 未然形}
+    - {lemma: ない, pos: 助動詞}
+    - {surface: で, pos: 助詞-接続助詞}
+    - {lemma: [下さる, くださる], pos: 動詞}
+
+- id: temo_ii
+  pattern: 〜てもいい
+  level: N5
+  note: được phép làm gì (xin phép / cho phép)
+  fp: >
+    Biến thể てもかまいません・ても大丈夫 chưa phủ — mục riêng khi mở rộng.
+    Nでもいい (お茶でもいい) không lọt vì で đó là 助動詞 (だ 連用形), không phải
+    助詞-接続助詞. て/でも tách thành HAI token て + も.
+  seq:
+    - {surface: [て, で], pos: 助詞-接続助詞}
+    - {surface: も, pos: 助詞-係助詞}
+    - {lemma: [いい, 良い, よい], pos: 形容詞}
+
+- id: tsumori
+  pattern: 〜つもり
+  level: N4
+  note: dự định làm gì
+  fp: >
+    Dạng phủ định 行かないつもり bị MISS (đã kiểm --debug) vì token trước つもり
+    là ない (助動詞) chứ không phải 動詞 — thêm nhánh riêng khi mở rộng, đừng nới
+    pos kẻo lọt lạ. Khớp surface つもり vì lemma là 積り (kanji).
+  seq:
+    - {pos: 動詞, cform: 連体形}
+    - {surface: つもり, pos: 名詞}
+
+- id: tari
+  pattern: 〜たり〜たり
+  level: N4
+  note: liệt kê hành động (lúc thì A, lúc thì B)
+  fp: >
+    Matcher chỉ khớp token LIÊN TIẾP nên không ràng được cặp たり…たりする đầy đủ
+    — mỗi cụm 〜たり khớp một hit riêng (câu ví dụ ra 2 hit); câu chỉ có MỘT たり
+    (〜たりする "đại loại như") vẫn khớp — ghi error analysis. たり là MỘT token
+    助詞-副助詞 (khác た của ta_bakari); sau 撥音便 thành surface だり nhưng lemma
+    vẫn たり.
+  seq:
+    - {pos: 動詞, cform: 連用形}
+    - {lemma: たり, pos: 助詞-副助詞}
