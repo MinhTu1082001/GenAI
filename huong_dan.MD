@@ -1,5 +1,18 @@
 # Trợ lý dịch Nhật→Việt + giải thích ngữ pháp N5–N4
 
+# THEO CÁI NÀY NHÉ SẾP BÌNH DƯƠNG
+
+(mở rộng patterns.yaml + frames.yaml + templates.csv — luồng tay)
+python tagger.py --mine
+python split*data.py → đóng băng
+python gen_synthetic.py → xóa artifacts/
+python train.py --variant ... --run ... × 3 biến thể × 2–3 seed
+python evaluate.py runs/... --split dev → tune λ / free_bits / p_wd
+(gắn nhãn gold_annotation.csv) → python gold_ingest.py
+python evaluate.py runs/<model cuối> --split test --iwae-k 64
+python plots.py runs/a*... runs/b*... runs/c*...
+python demo.py --run runs/c\_... "昨日買ったばかりのパソコンが壊れてしまいました。"
+
 ### CVAE dual-decoder, train from scratch — bảng điều khiển dự án
 
 ## 1. Ràng buộc & phạm vi (đã chốt)
