@@ -176,11 +176,14 @@ def eval_run(run_dir: Path, rows, core: set[str], args, device):
             w.writerow([t, tp, fp, fn, f"{P:.3f}", f"{R:.3f}", f"{F:.3f}",
                         "yes" if t in core else "no"])
     if mu_rows:
+        # mu_rows theo thứ tự BATCH (đã sort độ dài) ≠ thứ tự `rows` gốc → KHÔNG zip
+        # thẳng, phải tra level qua id (mr[0]) kẻo fig7 t-SNE tô màu sai câu.
+        level_of = {r["id"]: row_level(r) for r in rows}
         with open(out_dir / "mu_dump.csv", "w", newline="", encoding="utf-8") as f:
             w = csv.writer(f)
             w.writerow(["id", "level"] + [f"m{j}" for j in range(len(mu_rows[0]) - 1)])
-            for rec, mr in zip(rows, mu_rows):
-                w.writerow([mr[0], row_level(rec)] + mr[1:])
+            for mr in mu_rows:
+                w.writerow([mr[0], level_of.get(mr[0], "none")] + mr[1:])
     if iwae_tok:
         with open(out_dir / "iwae_by_k.csv", "w", newline="", encoding="utf-8") as f:
             w = csv.writer(f); w.writerow(["K", "bound_per_token"])

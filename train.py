@@ -110,7 +110,8 @@ def encode_rows(rows, sp_ja, sp_vi, gvoc, cfg):
         tags = sorted({h["id"] for h in r.get("patterns", [])})
         gid = [gvoc[t] for t in tags if t in gvoc] or [gvoc["<none>"]]
         g = [BOS] + gid + [EOS]
-        data.append(dict(x=x, y=y, g=g, gold=set(tags), vi=r["vi"]))
+        data.append(dict(x=x, y=y, g=g, gold=set(tags), vi=r["vi"],
+                         id=r.get("id", ""), ja=r.get("ja", "")))
     return data
 
 def pad_2d(seqs, device):
@@ -135,7 +136,9 @@ def make_batches(data, bs, shuffle, rng, device):
             y_in=y[:, :-1], y_out=y[:, 1:],
             g_in=g[:, :-1], g_out=g[:, 1:],
             gold=[it["gold"] for it in items],
-            refs=[it["vi"] for it in items])
+            refs=[it["vi"] for it in items],
+            ids=[it["id"] for it in items],
+            jas=[it["ja"] for it in items])
 
 # ---------------------------------------------------------------- metric nội bộ
 def chrf(hyps: list[str], refs: list[str], max_n: int = 6, beta: float = 2.0) -> float:
@@ -221,6 +224,12 @@ def main():
     ap.add_argument("--run", default=None)
     ap.add_argument("--variant", default="cvae2", choices=["seq2seq", "cvae1", "cvae2"])
     ap.add_argument("--overfit", type=int, default=0, metavar="N")
+    ap.add_argument("--limit", type=int, default=0, metavar="N",
+                    help="chỉ dùng N câu train đầu (chạy nhanh máy yếu; KHÁC --overfit: "
+                         "vẫn giữ dev thật, p_wd, early stopping)")
+    ap.add_argument("--dev-eval-n", type=int,
+                    help="số câu dev greedy-decode mỗi epoch (mặc định 200 — bóp nhỏ cho nhanh)")
+    ap.add_argument("--patience", type=int); ap.add_argument("--log-every", type=int)
     ap.add_argument("--epochs", type=int); ap.add_argument("--batch", type=int)
     ap.add_argument("--lr", type=float); ap.add_argument("--seed", type=int)
     ap.add_argument("--lam", type=float); ap.add_argument("--beta-max", type=float)
@@ -231,7 +240,8 @@ def main():
 
     cfg = dict(CFG); cfg["variant"] = args.variant
     for k in ("epochs", "batch", "lr", "seed", "lam", "data_dir",
-              "beta_max", "free_bits", "p_wd", "warmup_frac"):
+              "beta_max", "free_bits", "p_wd", "warmup_frac",
+              "dev_eval_n", "patience", "log_every"):
         v = getattr(args, k, None)
         if v is not None: cfg[k] = v
 
@@ -244,7 +254,13 @@ def main():
     if args.overfit:
         rows_tr = rows_tr[: args.overfit]; rows_de = rows_tr
         cfg["p_wd"] = 0.0; cfg["patience"] = 10**9; cfg["dev_eval_n"] = len(rows_tr)
-        print(f"CHẾ ĐỘ OVERFIT: {len(rows_tr)} câu, p_wd=0 — kỳ vọng CE→~0, F1→~1")
+        cfg["art_dir"] = "artifacts_overfit"   # vocab tí hon KHÔNG được làm bẩn artifacts/
+        print(f"CHẾ ĐỘ OVERFIT: {len(rows_tr)} câu, p_wd=0 — kỳ vọng CE→~0, F1→~1 "
+              f"(vocab ghi vào artifacts_overfit/, tách khỏi ablation thật)")
+    elif args.limit:
+        rows_tr = rows_tr[: args.limit]
+        print(f"GIỚI HẠN train {len(rows_tr)} câu (smoke-run máy yếu — số liệu KHÔNG "
+              f"dùng cho báo cáo cuối; nhớ xóa artifacts/ trước để vocab build lại)")
 
     sp_ja, sp_vi, gvoc = build_vocabs(cfg, rows_tr, rows_de)
     inv_g = {v: k for k, v in gvoc.items()}
@@ -296,7 +312,7 @@ def main():
 
             agg["ce_t"] += out["ce_trans"].item()
             if model.use_gram: agg["ce_g"] += out["ce_gram"].item()
-            if model.use_z: agg["kl"] += float(kl_sum)
+            if model.use_z: agg["kl"] += kl_sum.item()   # .item() tránh UserWarning grad
             cnt += 1
             if step % cfg["log_every"] == 0:
                 mw.writerow([step, epoch, "train",

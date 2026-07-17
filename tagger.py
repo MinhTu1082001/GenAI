@@ -212,7 +212,7 @@ if __name__ == "__main__":
     ap.add_argument("--selftest", action="store_true")
     ap.add_argument("--debug", metavar="CÂU")
     ap.add_argument("--mine", action="store_true")
-    args = ap.parse_args(["--mine"])
+    args = ap.parse_args()
 
     pats = load_patterns()
     tg = fugashi.Tagger()
