@@ -1,0 +1,80 @@
+# frames.yaml — Khung câu song ngữ + slot từ vựng cho gen_synthetic.py
+# ============================================================================
+# SLOTS: mỗi slot là danh sách entry song ngữ. Động từ mang SẴN các dạng chia
+# cần dùng (ja_ta, ja_te, ja_masu, ja_nak...) — điền tay, không sinh tự động,
+# để nhãn và ngữ pháp đúng 100% by construction.
+#
+# FRAMES: template hai vế, placeholder dạng {tên_slot.trường}.
+# QUY TẮC VÀNG: cùng một tên slot trong một frame → dùng CÙNG MỘT entry,
+# nên {verb.ja_ta} và {verb.vi} luôn cùng một động từ — hai vế không lệch nghĩa.
+#   patterns: các pattern id mà khung này chứa — CHÍNH LÀ NHÃN (phải có trong
+#   patterns.yaml). Một frame có thể mang nhiều pattern (xem f_bakari_shimau).
+# ============================================================================
+
+slots:
+  time:
+    - {ja: 昨日, vi: hôm qua}
+    - {ja: 先週, vi: tuần trước}
+    - {ja: さっき, vi: lúc nãy}
+  noun:
+    - {ja: パソコン, vi: máy tính}
+    - {ja: 本, vi: quyển sách}
+    - {ja: かばん, vi: cái cặp}
+    - {ja: 自転車, vi: chiếc xe đạp}
+  place:
+    - {ja: 図書館, vi: thư viện}
+    - {ja: 学校, vi: trường}
+    - {ja: 銀行, vi: ngân hàng}
+  music:
+    - {ja: 音楽, vi: nhạc}
+    - {ja: ラジオ, vi: radio}
+  verb_t:            # tha động từ, đủ dạng chia
+    - {ja_ru: 買う, ja_ta: 買った, ja_te: 買って, ja_masu: 買い, vi: mua}
+    - {ja_ru: 読む, ja_ta: 読んだ, ja_te: 読んで, ja_masu: 読み, vi: đọc}
+    - {ja_ru: 使う, ja_ta: 使った, ja_te: 使って, ja_masu: 使い, vi: dùng}
+  verb_break:        # tự động từ cho てしまう (sự cố ngoài ý muốn)
+    - {ja_te: 壊れて, vi: hỏng}
+    - {ja_te: 消えて, vi: biến mất}
+    - {ja_te: なくなって, vi: mất}
+  verb_nak:          # dạng 〜なければ có sẵn
+    - {ja_nak: 行かなければ, vi: đi}
+    - {ja_nak: 帰らなければ, vi: về}
+    - {ja_nak: 勉強しなければ, vi: học bài}
+
+frames:
+  - id: f_ta_bakari_1
+    patterns: [ta_bakari]
+    ja: "{time.ja}{verb_t.ja_ta}ばかりの{noun.ja}です。"
+    vi: "Là {noun.vi} vừa mới {verb_t.vi} {time.vi}."
+  - id: f_ta_bakari_2
+    patterns: [ta_bakari]
+    ja: "この{noun.ja}は{time.ja}{verb_t.ja_ta}ばかりです。"
+    vi: "{noun.vi} này vừa mới {verb_t.vi} {time.vi} xong."
+  - id: f_te_shimau_1
+    patterns: [te_shimau]
+    ja: "{noun.ja}が{verb_break.ja_te}しまいました。"
+    vi: "{noun.vi} đã {verb_break.vi} mất rồi."
+  - id: f_bakari_shimau        # frame đa-pattern — đúng câu ví dụ gốc của đề tài
+    patterns: [ta_bakari, te_shimau]
+    ja: "{time.ja}{verb_t.ja_ta}ばかりの{noun.ja}が{verb_break.ja_te}しまいました。"
+    vi: "{noun.vi} tôi vừa mới {verb_t.vi} {time.vi} đã bị {verb_break.vi} mất rồi."
+  - id: f_te_iru_1
+    patterns: [te_iru]
+    ja: "今、{place.ja}で{noun.ja}を{verb_t.ja_te}います。"
+    vi: "Bây giờ tôi đang {verb_t.vi} {noun.vi} ở {place.vi}."
+  - id: f_nakereba_1
+    patterns: [nakereba_naranai]
+    ja: "明日は{verb_nak.ja_nak}なりません。"
+    vi: "Ngày mai tôi phải {verb_nak.vi}."
+  - id: f_nagara_1
+    patterns: [nagara]
+    ja: "{music.ja}を聞きながら{noun.ja}を{verb_t.ja_masu}ます。"
+    vi: "Tôi vừa nghe {music.vi} vừa {verb_t.vi} {noun.vi}."
+  - id: f_koto_ga_aru_1
+    patterns: [ta_koto_ga_aru]
+    ja: "{place.ja}で{noun.ja}を{verb_t.ja_ta}ことがあります。"
+    vi: "Tôi đã từng {verb_t.vi} {noun.vi} ở {place.vi}."
+  - id: f_hou_ga_ii_1
+    patterns: [hou_ga_ii]
+    ja: "早く{place.ja}へ行ったほうがいいですよ。"
+    vi: "Bạn nên đi {place.vi} sớm thì hơn đấy."

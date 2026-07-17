@@ -1,0 +1,10 @@
+• Sách:
+• Ian Goodfellow and Yoshua Bengio and Aaron Courville. Deep Learning. MIT Press, 
+2016.
+• Mehryar Mohri, Afshin Rostamizadeh, and Ameet Talwalkar. Foundations of 
+Machine Learning. MIT Press. 2018.
+• Nguồn khác:
+• Stanford CS236: Deep Generative Models 
+https://deepgenerativemodels.github.io/syllabus.html
+• Berkeley CS294-158: Deep Unsupervised Learning 
+https://www.youtube.com/watch?v=tFR6Likf4VI
