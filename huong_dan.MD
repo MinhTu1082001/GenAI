@@ -2,129 +2,141 @@
 
 # THEO CÁI NÀY NHÉ SẾP BÌNH DƯƠNG
 
-(mở rộng patterns.yaml + frames.yaml + templates.csv — luồng tay)
-python tagger.py --mine
-python split*data.py → đóng băng
-python gen_synthetic.py → xóa artifacts/
-python train.py --variant ... --run ... × 3 biến thể × 2–3 seed
-python evaluate.py runs/... --split dev → tune λ / free_bits / p_wd
-(gắn nhãn gold_annotation.csv) → python gold_ingest.py
-python evaluate.py runs/<model cuối> --split test --iwae-k 64
-python plots.py runs/a*... runs/b*... runs/c*...
-python demo.py --run runs/c\_... "昨日買ったばかりのパソコンが壊れてしまいました。"
+Pipeline: **dữ liệu → gán nhãn → chia tập → train CVAE (3 biến thể) → chấm điểm → vẽ hình → demo JSON**.
 
-### CVAE dual-decoder, train from scratch — bảng điều khiển dự án
+chạy lần lượt mục **1 → 2 → 3 → 4** là đi từ số 0 đến demo (với 7 pattern có sẵn).
+Mục **5–6** là việc chính của đề tài (mở rộng pattern, chấm điểm cuối). Mục **7–8** để tra cứu.
 
-## 1. Ràng buộc & phạm vi (đã chốt)
+---
 
-- **From scratch tuyệt đối**: không trọng số pretrained, không token nào do model
-  khác sinh ra — áp cả lên _phả hệ dữ liệu_ (loại corpus mined kiểu CCMatrix/NLLB).
-- Công cụ được phép ở tầng dữ liệu: SentencePiece (tự train trên corpus của mình),
-  fugashi/MeCab (tra từ điển hình thái — không phải neural model).
-- Phạm vi ngữ pháp: **N5–N4**, ~100–150 pattern. Model ~6M tham số, chạy CPU được.
-- Ba tầng đầu ra: model quyết **có pattern gì** → rule matcher định vị **ở đâu**
-  → từ điển template quyết **giảng thế nào** (hallucination tầng giải thích = 0 by design).
+## 1 · Cài đặt — một lần sau khi clone
 
-## 2. Kiến trúc & loss (tóm tắt một màn hình)
-
-```
-ja → BiGRU encoder → (μ, logσ²) → z = μ + σ⊙ε        (d_z = 64)
-       │
-       ├─ Decoder DỊCH:      GRU + attention Bahdanau, input mỗi bước [emb; c_t; z]
-       └─ Decoder NGỮ PHÁP:  GRU, CHỈ nhận z (không attention) → chuỗi pattern-ID + <none>
-
-L = CE_dịch/token + λ·CE_ngữpháp/token + β(t)·Σⱼ max(λ_fb, KL_j)
-    KL annealing tuyến tính (warmup 15% bước) · free bits 0.2 · word dropout 0.3 (chỉ decoder dịch)
-    assert KL ≥ 0 · eval dùng z = μ · tied embeddings
-```
-
-Tam giác ablation dùng chung code: `--variant seq2seq | cvae1 | cvae2`
-(+ hàng baseline thứ tư: chính rule tagger, chấm F1 trên gold như mọi model).
-
-## 3. File & trạng thái
-
-| #   | File               | Vai trò                                                                         | Trạng thái                             |
-| --- | ------------------ | ------------------------------------------------------------------------------- | -------------------------------------- |
-| 1   | `download_data.py` | Tatoeba + ALT + OPUS → `data/interim/*.jsonl` + manifest (URL, sha256, license) | ✅ đã chạy                             |
-| 2   | `prepare_data.py`  | Chuẩn hóa NFKC/NFC → 5 cửa lọc → dedupe skeleton → `pool.jsonl` + `stats.txt`   | ✅ đã chạy                             |
-| 3   | `patterns.yaml`    | Danh mục pattern (schema + 7 mẫu)                                               | 🔶 **7/100–150 — critical path**       |
-| 4   | `tagger.py`        | Miner + silver labeler + baseline; `--selftest / --debug / --mine`              | ✅ chạy được (theo 7 pattern)          |
-| 5   | `split_data.py`    | Stratify test 180 + dev 400, chặn leakage trigram, core set, gold CSV, checksum | ⏳ chạy THẬT khi patterns xong         |
-| 6   | `model.py`         | Kiến trúc CVAE 3 biến thể                                                       | ✅                                     |
-| 7   | `train.py`         | Vòng train + metrics.csv/kl_dims.csv + overfit sanity (đã vá artifacts_overfit) | ✅ sanity xong · ▶ ablation tổng duyệt |
-
-## 4. Lệnh chạy theo thứ tự
+Cần: Python 3.10+ (đã thử 3.11), ~2 GB đĩa trống, internet cho lần tải đầu.
 
 ```bat
-:: ---- DỮ LIỆU (lặp lại các bước 3–5 mỗi khi patterns.yaml đổi lớn) ----
-python download_data.py
-python prepare_data.py
-python tagger.py --selftest
-python tagger.py --mine
-python split_data.py            :: CHỈ chạy thật khi patterns hoàn chỉnh → ĐÓNG BĂNG
+python -m venv venv                :: tạo môi trường ảo (thư mục venv/)
+venv\Scripts\activate              :: bật nó (PowerShell gõ: .\venv\Scripts\Activate.ps1)
+pip install -r requirements.txt    :: cài thư viện — torch ~200MB nên hơi lâu
+```
 
-:: ---- MODEL ----
+Nếu console in lỗi ký tự Nhật/Việt: chạy thêm `set PYTHONUTF8=1`
+(PowerShell: `$env:PYTHONUTF8="1"`). Chỉ cần một lần mỗi phiên.
+
+---
+
+## 2 · Tải + làm sạch dữ liệu — một lần (cần internet)
+
+```bat
+python download_data.py    :: tải Tatoeba + ALT, ghép cặp câu Nhật-Việt → data/interim/
+python prepare_data.py     :: chuẩn hóa chữ, lọc câu rác, bỏ trùng → data/processed/pool.jsonl (~16.000 cặp)
+```
+
+Xong bước này mở `data/processed/stats.txt` xem số liệu lọc (không bắt buộc).
+
+---
+
+## 3 · Gán nhãn ngữ pháp + chia train/dev/test
+
+```bat
+python tagger.py --selftest    :: kiểm bộ luật pattern — phải PASS hết mới đi tiếp
+python tagger.py --mine        :: quét pool, đánh dấu câu nào chứa pattern nào → mined.jsonl + coverage.csv
+python split_data.py           :: chia train/dev/test — test 180 câu bị KHÓA bằng checksum, không đụng nữa
+python gen_synthetic.py        :: sinh thêm câu từ khung frames.yaml, CHỈ thêm vào train
+```
+
+---
+
+## 4 · Train + chấm + vẽ hình + demo — MỘT lệnh
+
+Mở `config.ini` xem qua (mặc định đang là bản CHẠY NHANH cho máy yếu: 300 câu, 3 epoch), rồi:
+
+```bat
+python run.py
+:: tự làm hết: xóa artifacts/ → train 3 biến thể (seq2seq / cvae1 / cvae2)
+::             → chấm trên dev → vẽ hình → in JSON demo ra màn hình
+```
+
+- Kết quả nằm ở: `runs/<biến thể>/` (checkpoint + metrics + hình), `eval_summary_dev.csv`, `plots_compare/`.
+- Muốn **số thật cho báo cáo**: trong `config.ini` sửa `limit = 0` (dùng toàn bộ train — CPU chạy vài giờ).
+- Muốn tự tay chạy từng file thay vì run.py → xem mục 7.
+
+Đến đây bạn đã có bản demo chạy được từ đầu đến cuối. 🎉
+
+---
+
+## 5 · Việc chính của đề tài: mở rộng pattern (làm TAY, lặp nhiều lần)
+
+Hiện có **7/~100–150 pattern** — chất lượng cả hệ phụ thuộc mục này. Ba file, mỗi file một vòng:
+
+### 5a · patterns.yaml — thêm luật nhận diện pattern (~10–15 phút/pattern)
+
+```bat
+:: bước 1: xem máy tách câu ví dụ thành hình vị thế nào
+python tagger.py --debug "昨日パソコンを買ったばかりです。"
+:: bước 2: dựa vào bảng đó, viết mục mới (id + seq) vào patterns.yaml
+:: bước 3: thêm 1 câu test vào SELFTEST[] trong tagger.py, rồi kiểm:
+python tagger.py --selftest    :: PASS hết = pattern mới được nhận
+```
+
+### 5b · frames.yaml — khung câu bù cho pattern hiếm
+
+```bat
+python tagger.py --mine        :: mở coverage.csv, xem pattern nào ÍT câu
+:: thêm khung + từ vựng vào frames.yaml cho pattern đó
+python gen_synthetic.py        :: tự kiểm khung sinh đúng nhãn — có dòng ⚠ là khung/luật sai
+```
+
+### 5c · templates.csv — lời giảng cho từng pattern (demo.py đọc file này)
+
+```bat
+:: tạo sẵn khung CSV từ patterns.yaml (đỡ gõ tay từng dòng):
+python -c "import yaml,csv; ps=yaml.safe_load(open('patterns.yaml',encoding='utf-8')); w=csv.writer(open('templates_seed.csv','w',newline='',encoding='utf-8-sig')); w.writerow(['pattern_id','meaning','explanation','common_mistake']); [w.writerow([p['id'],p.get('note',''),'','']) for p in ps]"
+:: → đổi tên thành templates.csv, mở bằng Excel/Sheets, điền tay 2 cột cuối
+```
+
+**Sau mỗi đợt mở rộng lớn: chạy lại mục 3 rồi mục 4** (nhãn + split + vocab phải làm lại theo pattern mới).
+
+---
+
+## 6 · Chấm điểm cuối — làm MỘT lần, sau khi mọi thứ chốt
+
+```bat
+:: bước tay: mở data/splits/gold_annotation.csv, sửa nhãn máy gán sai (~6-12h)
+::           đọc data/splits/README_gold.txt TRƯỚC khi sửa
+python gold_ingest.py                                :: kiểm checksum + nhập nhãn đã sửa → test_gold.jsonl
+python evaluate.py runs/cvae2 --split test --iwae-k 64   :: chấm test ĐÚNG MỘT LẦN cho model cuối
+```
+
+---
+
+## 7 · (Tùy chọn) chạy từng file thay cho run.py
+
+Đây chính là các lệnh run.py gọi bên trong — dùng khi muốn kiểm soát từng bước:
+
+```bat
+:: (tùy chọn) train thử 50 câu để bắt bug trước — ghi vocab riêng artifacts_overfit/
 python train.py --overfit 50 --epochs 300 --run sanity
-rmdir /s /q artifacts           :: BẮT BUỘC mỗi khi dữ liệu train thay đổi
-python train.py --variant seq2seq --run a_seq2seq
-python train.py --variant cvae1   --run b_cvae1
-python train.py --variant cvae2   --run c_cvae2
+
+rmdir /s /q artifacts    :: xóa MỘT lần trước run đầu — 3 biến thể phải dùng CHUNG vocab
+                         :: (PowerShell: Remove-Item -Recurse -Force artifacts)
+
+:: train 3 biến thể — cờ giống hệt nhau mới so sánh được (cờ dưới = bản chạy nhanh)
+python train.py --variant seq2seq --run seq2seq --limit 300 --epochs 3 --dev-eval-n 40
+python train.py --variant cvae1   --run cvae1   --limit 300 --epochs 3 --dev-eval-n 40
+python train.py --variant cvae2   --run cvae2   --limit 300 --epochs 3 --dev-eval-n 40
+:: bản THẬT cho báo cáo: bỏ 3 cờ --limit --epochs --dev-eval-n
+
+python evaluate.py runs/seq2seq runs/cvae1 runs/cvae2 --split dev --iwae-k 64
+python plots.py runs/seq2seq runs/cvae1 runs/cvae2
+python demo.py --run runs/cvae2 "昨日買ったばかりのパソコンが壊れてしまいました。"
 ```
 
-## 5. Kỷ luật bất di bất dịch
+---
 
-1. `artifacts/` xóa & build lại khi dữ liệu đổi; **giữ nguyên trong một chiến dịch ablation** (vocab chung mới so sánh được).
-2. `test.jsonl` + `test_checksum.txt` đóng băng từ lúc bắt đầu sửa gold CSV; tuning chỉ nhìn dev; **test chấm một lần** ở cuối.
-3. Dữ liệu synthetic (khi có) chỉ append vào **train**.
-4. Dedupe trước split; near-dup đã có chốt chặn trigram trong split_data.
-5. Mọi file I/O `encoding="utf-8"` (Windows mặc định cp1252 — bẫy số một).
-6. Mỗi run một thư mục `runs/<tên>/` chứa config + metrics + checkpoint — số nào trong báo cáo cũng truy vết được về một run.
+## 8 · Quy tắc KHÔNG được phá
 
-## 6. Việc còn lại
-
-### Luồng TAY (critical path — mọi thứ downstream chờ mục 1)
-
-1. **Mở rộng `patterns.yaml` → ~100–150 mục** (vòng lặp: `--debug` câu ví dụ → viết seq → thêm SELFTEST → `--selftest`; ~10–15 phút/pattern).
-2. **Từ điển template** — làm song song với (1), đề xuất format `templates.csv`:
-   `pattern_id, meaning, explanation, common_mistake` (demo.py sẽ đọc file này).
-3. `--mine` lần cuối → soi `coverage.csv` tìm lỗ.
-4. `split_data.py` thật → kiểm core set (~60–80 mục) → **đóng băng**.
-5. Gắn nhãn `gold_annotation.csv` (~180 câu, 6–12h, đọc `README_gold.txt` trước).
-
-### Luồng CODE (Claude viết tiếp, theo thứ tự cần)
-
-6. `gen_synthetic.py` — khung câu song ngữ + slot từ vựng → lấp lỗ coverage (chỉ vào train).
-7. `gold_ingest.py` — đọc CSV đã sửa → `test_gold.jsonl`.
-8. `evaluate.py` — chấm test MỘT lần: F1 micro/macro trên core set + bảng theo pattern,
-   chrF/BLEU (sacrebleu), ELBO/token + IWAE K=64; chấm luôn hàng baseline rule-tagger.
-9. `plots.py` — sáu họ hình từ metrics.csv + kl_dims.csv: loss tổng, train/dev gap,
-   phân rã ELBO + β(t), heatmap KL từng chiều + AU, mặt phẳng rate–distortion,
-   ELBO vs IWAE; cộng t-SNE của μ tô màu theo level.
-10. `demo.py` — ghép model + span-locator + template → JSON hoàn chỉnh (đúng vision ban đầu).
-
-### Chiến dịch cuối + báo cáo
-
-11. Ablation thật: 3 biến thể × 2–3 seed trên splits đóng băng; tune λ/free_bits/p_wd trên dev (~10–15 run).
-12. `evaluate.py` trên test một lần / model cuối; bảng + hình.
-13. Viết báo cáo: Step 1–2 đã có sẵn nguyên liệu (toàn bộ phần derive A0–A9 + bảng map
-    nguồn Goodfellow/Mohri/CS236/CS294-158 trong hội thoại); mục data provenance
-    (license, tuyên bố no-MT, ghi chú pivot ALT); discussion collapse + label noise/ERM;
-    limitations (presence-level vs span, data nhỏ, trần silver = trần tagger).
-
-## 7. Git (khuyến nghị làm ngay trong VS Code)
-
-```bat
-git init
-git add *.py *.yaml README.md
-git commit -m "pipeline + model v1"
-```
-
-`.gitignore`:
-
-```
-data/
-runs/
-artifacts*/
-__pycache__/
-*.pt
-```
+1. **artifacts/** (vocab): xóa + build lại khi dữ liệu train đổi; nhưng GIỮ NGUYÊN suốt một đợt so sánh 3 biến thể.
+2. **test.jsonl**: đã khóa bằng checksum — không sửa, không chia lại. Mọi tinh chỉnh chỉ nhìn **dev**; test chấm đúng **một lần** ở mục 6.
+3. Câu synthetic chỉ được thêm vào **train**, không bao giờ vào dev/test.
+4. Mọi file mở bằng `encoding="utf-8"` — Windows mặc định cp1252, là bẫy số một.
+5. Mỗi lần train một thư mục `runs/<tên>/` riêng — số nào trong báo cáo cũng truy được về một run.
