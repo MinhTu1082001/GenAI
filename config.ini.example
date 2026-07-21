@@ -1,17 +1,22 @@
 # ============================================================================
-# config.ini — bảng điều khiển chạy pipeline CVAE dual-decoder
+# config.ini.example — cấu hình đầy đủ (số thật cho báo cáo cuối)
 # ----------------------------------------------------------------------------
-# Sửa file này rồi chạy:   python run.py
-# (run.py đọc config, tự gọi train.py / evaluate.py / plots.py / demo.py
-#  với đúng tham số — không cần gõ cờ dài dòng nữa.)
-# Muốn dùng config khác:   python run.py ten_config_khac.ini
+# Hai cách dùng:
+#   1) Chạy thẳng, không đụng config.ini:   python run.py config.ini.example
+#   2) Hoặc chép đè rồi chạy như thường:
+#        CMD       : copy /Y config.ini.example config.ini
+#        PowerShell: Copy-Item config.ini.example config.ini -Force
+#      rồi:  python run.py
+#
+# CPU chạy vài giờ cho đủ 3 biến thể; có GPU NVIDIA sẽ tự dùng (device để trống).
+# Trước lần chạy thật đầu tiên nên bật sanity = true MỘT lần để khám bug.
 # ============================================================================
 
 [pipeline]
 # Bật/tắt từng bước (true/false). Mặc định: vòng model -> eval -> plots -> demo.
 # Các bước DỮ LIỆU (download/prepare/tagger/split/synthetic) KHÔNG nằm ở đây:
 # chúng nặng, cần internet, hoặc làm ĐÓNG BĂNG split — chạy tay theo huong_dan.
-sanity   = false   # train.py --overfit: kiểm bug trước (khuyến nghị chạy 1 lần)
+sanity   = false   # true = chạy train.py --overfit 50 trước (khuyến nghị 1 lần đầu)
 train    = true    # train 3 biến thể tam giác ablation
 evaluate = true    # chấm trên dev (test chỉ chấm MỘT LẦN ở cuối, đổi tay)
 plots    = true    # sinh hình cho báo cáo
@@ -21,10 +26,10 @@ demo     = true    # ráp JSON dịch + chú giải ngữ pháp cho 1 câu
 # Tam giác ablation — GIỮ nguyên 3 biến thể mới so sánh được
 variants = seq2seq, cvae1, cvae2
 
-# --- Bóp nhỏ cho MÁY YẾU (số liệu KHÔNG dùng cho báo cáo cuối) ---
-limit      = 300    # số câu train dùng; 0 = TOÀN BỘ (số thật cho báo cáo)
-epochs     = 3
-dev_eval_n = 40     # số câu dev greedy-decode mỗi epoch (chỗ chậm nhất trên CPU)
+# --- Dữ liệu & vòng lặp ---
+limit      = 0      # 0 = toàn bộ train
+epochs     = 60     # đúng mặc định thiết kế (train.py CFG); early stopping sẽ tự dừng sớm
+dev_eval_n = 200    # số câu dev greedy-decode mỗi epoch (mặc định thiết kế)
 
 # --- Siêu tham số mô hình/loss: để mặc định = đúng thiết kế huong_dan ---
 batch       = 64
