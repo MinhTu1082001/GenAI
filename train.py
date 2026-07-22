@@ -48,6 +48,8 @@ CFG = dict(
     beta_max=1.0, warmup_frac=0.15,              # KL annealing tuyến tính (A6)
     free_bits=0.2,                               # λ_fb mỗi chiều, nats (A6)
     p_wd=0.3,                                    # word dropout decoder DỊCH (A6)
+    ls_trans=0.1,                                # label smoothing CE dịch (CHỈ lúc train;
+                                                 # dev/eval vẫn CE thật, so được run cũ)
     patience=10, log_every=20, dev_eval_n=200,
 )
 
@@ -80,11 +82,14 @@ def build_vocabs(cfg, rows_train, rows_dev):
             input=str(tmp), model_prefix=prefix, vocab_size=vocab,
             model_type="unigram", character_coverage=coverage,
             pad_id=PAD, unk_id=UNK, bos_id=BOS, eos_id=EOS,
-            hard_vocab_limit=False, minloglevel=2)
+            hard_vocab_limit=False, minloglevel=2,
+            byte_fallback=True)                  # ký tự ngoài vocab → byte, không bao giờ <unk>
         tmp.unlink()
 
+    # coverage PHẢI là 1.0: 0.9995 trên corpus nhỏ vứt kanji hiếm → 12.6% token
+    # thành <unk>, 84% câu train dính UNK — encoder mất nội dung, dịch sai nghĩa.
     spm_train([r["ja"] for r in rows_train], str(art / "spm_ja"),
-              cfg["vocab_ja"], 0.9995)
+              cfg["vocab_ja"], 1.0)
     spm_train([r["vi"] for r in rows_train], str(art / "spm_vi"),
               cfg["vocab_vi"], 1.0)
 
@@ -234,13 +239,13 @@ def main():
     ap.add_argument("--lr", type=float); ap.add_argument("--seed", type=int)
     ap.add_argument("--lam", type=float); ap.add_argument("--beta-max", type=float)
     ap.add_argument("--free-bits", type=float); ap.add_argument("--p-wd", type=float)
-    ap.add_argument("--warmup-frac", type=float)
+    ap.add_argument("--warmup-frac", type=float); ap.add_argument("--ls-trans", type=float)
     ap.add_argument("--data-dir"); ap.add_argument("--device", default=None)
     args = ap.parse_args()
 
     cfg = dict(CFG); cfg["variant"] = args.variant
     for k in ("epochs", "batch", "lr", "seed", "lam", "data_dir",
-              "beta_max", "free_bits", "p_wd", "warmup_frac",
+              "beta_max", "free_bits", "p_wd", "warmup_frac", "ls_trans",
               "dev_eval_n", "patience", "log_every"):
         v = getattr(args, k, None)
         if v is not None: cfg[k] = v

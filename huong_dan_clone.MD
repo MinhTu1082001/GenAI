@@ -119,7 +119,15 @@ Kết quả:
 | `eval_summary_dev.csv` | bảng so sánh 3 biến thể — số chính cho báo cáo |
 | `plots_compare/` | hình so sánh: chrF, F1, rate–distortion, IWAE |
 
+*Kiểm tra:* gõ `python check_unk.py` — phải in `PASS`. Lệnh này đo xem bộ cắt chữ
+(tokenizer) có làm mất chữ Nhật thành `<unk>` không; PASS nghĩa là model được học
+trên câu nguyên vẹn.
+
 Đến đây bạn đã có một hệ chạy được từ đầu đến cuối. 🎉
+
+> Đừng kỳ vọng bản **dịch** hay: model nhỏ, train từ đầu trên ~16.000 câu nên chỉ
+> "tạm hiểu" với câu ngắn — đó là giới hạn dữ liệu, không phải bạn chạy sai.
+> Trọng tâm của đề tài là phần **chú giải ngữ pháp** đi kèm.
 
 *Muốn chạy từng file thay vì `run.py`* (để xem rõ từng bước): mục 7 của `huong_dan.MD`.
 
@@ -169,6 +177,7 @@ con số sẽ tốt hơn thực tế.
 | `Không thấy mined.jsonl` | Chưa chạy `python tagger.py --mine` ở bước 3. |
 | `Checksum id KHÔNG khớp` (ở bước 5) | Đã chạy lại `split_data.py` sau khi bắt đầu gán nhãn → tập test đã đổi. Nhãn gold cũ không còn khớp; phải gán lại từ đầu. |
 | `X câu FAIL — sửa YAML rồi chạy lại` | Luật trong `patterns.yaml` hỏng. Đừng đi tiếp; xem mục 5a của `huong_dan.MD`. |
+| `python check_unk.py` báo `FAIL` | `artifacts/` là bản build cũ. Xóa thư mục `artifacts/` rồi chạy lại `python run.py` (mặc định `fresh_artifacts = true` sẽ tự xóa — FAIL thường do đã tắt cờ này). |
 | Train chạy quá lâu | Sửa `config.ini`: `limit = 300`, `epochs = 3`, `dev_eval_n = 40`. |
 
 ---

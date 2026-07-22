@@ -171,6 +171,7 @@ class CVAE(nn.Module):
         assert variant in ("seq2seq", "cvae1", "cvae2"), variant
         self.use_z = variant != "seq2seq"
         self.use_gram = variant == "cvae2"
+        self.ls_trans = cfg.get("ls_trans", 0.0)  # .get: config.json cũ không có khóa này
         d_z = cfg["d_z"] if self.use_z else 0
         self.d_z = cfg["d_z"]
         self.enc = Encoder(n_ja, cfg["d_emb"], cfg["enc_hid"], cfg["d_z"], self.use_z)
@@ -193,16 +194,20 @@ class CVAE(nn.Module):
         return H, mask, summ, z, mu, logvar
 
     @staticmethod
-    def _ce(logits, target):
+    def _ce(logits, target, ls: float = 0.0):
         n = target.ne(PAD).sum().clamp(min=1)
         ce = F.cross_entropy(logits.reshape(-1, logits.size(-1)),
-                             target.reshape(-1), ignore_index=PAD, reduction="sum")
+                             target.reshape(-1), ignore_index=PAD, reduction="sum",
+                             label_smoothing=ls)
         return ce / n, n                                  # CE THEO TOKEN (trước khi cân λ)
 
     def forward(self, batch: dict, p_wd: float, sample_z: bool = True):
         H, mask, summ, z, mu, logvar = self.encode(batch["x"], batch["lens"], sample_z)
         logits_t = self.dec_t.forward_teacher(batch["y_in"], H, mask, summ, z, p_wd)
-        ce_t, n_t = self._ce(logits_t, batch["y_out"])
+        # smoothing CHỈ lúc train — dev-eval (model.eval()) vẫn báo CE thật,
+        # để metrics.csv so được với run cũ và không làm bẩn NLL/ELBO
+        ls = self.ls_trans if self.training else 0.0
+        ce_t, n_t = self._ce(logits_t, batch["y_out"], ls)
         out = {"ce_trans": ce_t, "n_tok_t": n_t, "mu": mu}
         if self.use_gram:
             logits_g = self.dec_g.forward_teacher(batch["g_in"], z)

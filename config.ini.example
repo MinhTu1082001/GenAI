@@ -38,6 +38,7 @@ seed        = 13
 lam         = 1.0    # trọng số CE ngữ pháp
 free_bits   = 0.2    # nats/chiều
 p_wd        = 0.3    # word dropout decoder dịch
+ls_trans    = 0.1    # label smoothing CE dịch (chỉ lúc train; eval vẫn CE thật)
 beta_max    = 1.0
 warmup_frac = 0.15
 patience    = 10

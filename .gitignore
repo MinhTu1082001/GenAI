@@ -10,3 +10,5 @@ artifacts/
 __pycache__/
 .claude/
 slide/
+tai_lieu/
+scratch_spm/

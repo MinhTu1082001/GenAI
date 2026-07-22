@@ -72,7 +72,7 @@ def main() -> None:
                               ("--batch", "batch"), ("--lr", "lr"), ("--seed", "seed"),
                               ("--lam", "lam"), ("--free-bits", "free_bits"),
                               ("--p-wd", "p_wd"), ("--beta-max", "beta_max"),
-                              ("--warmup-frac", "warmup_frac"),
+                              ("--warmup-frac", "warmup_frac"), ("--ls-trans", "ls_trans"),
                               ("--patience", "patience"), ("--device", "device")):
                 opt(args, flag, t.get(key, ""))
             run(args)
